@@ -2,6 +2,7 @@ from soft.impl.ChatSoft import ChatSoft
 from soft.impl.CreateGroupSoft import CreateGroupSoft
 from soft.impl.DataHandlingSoft import DataHandlingSoft
 from soft.impl.GetGroupSoft import GetGroupSoft
+from soft.impl.GetRecentMsgSoft import GetRecentMsgSoft
 from soft.impl.PublicKeySoft import PublicKeySendSoft, PublicKeyReceiveSoft
 from soft.impl.ReceiveGroupMsgSoft import ReceiveGroupMsgSoft
 from soft.impl.SendGroupMsgSoft import SendGroupMsgSoft
@@ -17,6 +18,7 @@ class SoftManager:
         self.send_group_msg_soft = None
         self.receive_group_msg_soft = None
         self.get_group_soft = None
+        self.get_recent_msg_soft = None
 
     def register(self,tcp):
         self.chat_soft = ChatSoft(tcp)
@@ -26,3 +28,4 @@ class SoftManager:
         self.send_group_msg_soft = SendGroupMsgSoft(tcp)
         self.receive_group_msg_soft = ReceiveGroupMsgSoft(tcp)
         self.get_group_soft = GetGroupSoft()
+        self.get_recent_msg_soft = GetRecentMsgSoft()
