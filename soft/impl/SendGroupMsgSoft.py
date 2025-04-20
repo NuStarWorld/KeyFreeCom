@@ -21,4 +21,4 @@ class SendGroupMsgSoft(AbsSoft):
             },
             "type": "send_group_msg"
         }
-        self.tcp.send_msg(send_data,SendMode.ENCRYPT)
+        return send_data
