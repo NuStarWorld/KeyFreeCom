@@ -5,8 +5,8 @@ from PyQt6.QtWidgets import (
 )
 
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QFont
 
+from qt.compoents.JoinRoomDialog import JoinRoomDialog
 from soft import run
 from qt.NetworkThread import NetworkThread
 from qt.compoents.CreateRoomDialog import CreateRoomDialog
@@ -31,18 +31,6 @@ class ChatWindow(QMainWindow):
         self.id = ""
         self.get_groups()
 
-        self.msg_style = """
-                            <style>
-                                .other-msg { 
-                                        background: #F0F2F5; 
-                                    }
-                                .self-msg { 
-                                    background: #DCF6C5;
-                                }
-                            </style>
-                        """
-
-
     def setup_network(self):
         self.network_thread = NetworkThread(self.tcp)
         self.network_thread.result_received.connect(self.handle_network_result)
@@ -55,9 +43,11 @@ class ChatWindow(QMainWindow):
         self.tcp.debug.debug_info(f"收到界面消息:{result}")
         if result["data"]["result"] == "success":
             match result["type"]:
+                case "join_group":
+                    self.chatroom_list.clear()
+                    self.get_groups()
                 case "get_recent_msg":
                     messages = result["data"]["messages"]
-                    print(messages)
                     for key in messages:
                         sender_id = messages[key]["sender_id"]
                         message = messages[key]["content"]
@@ -68,23 +58,15 @@ class ChatWindow(QMainWindow):
                             # 如果是自己的id消息就显示在聊天框右边，要包含日期,用户ID,消息内容元素
                             # 自己的消息（右侧）
                             html_content = f"""
-                                            {self.msg_style}
-                                            <div class="self-msg">
-                                                <div class="self-time">{formatted_time}</div>
-                                                <div class="self-id">你</div>
-                                                <div style="margin-top:4px;">{message}</div>
-                                            </div>
-                                        """
+                                    <div>{formatted_time}</div>
+                                    <div>你:{message}</div>
+                                    """
                         else:
                             # 他人的消息（左侧）
                             html_content = f"""
-                                            {self.msg_style}
-                                            <div class="other-msg">
-                                                <div class="other-time">{formatted_time}</div>
-                                                <div class="other-id">用户:{sender_id}</div> <!-- 显示后四位 -->
-                                                <div style="margin-top:4px;">{message}</div>
-                                            </div>
-                                        """
+                                    <div>{formatted_time}</div>
+                                    <div>用户{sender_id}:{message}</div>
+                                    """
                         self.chat_display.append(html_content)
                         # 自动滚动到底部
                     self.chat_display.verticalScrollBar().setValue(
@@ -120,23 +102,15 @@ class ChatWindow(QMainWindow):
                             # 如果是自己的id消息就显示在聊天框右边，要包含日期,用户ID,消息内容元素
                             # 自己的消息（右侧）
                             html_content = f"""
-                                            {self.msg_style}
-                                            <div class="self-msg">
-                                                <div class="self-time">{timestamp}</div>
-                                                <div class="self-id">你</div>
-                                                <div style="margin-top:4px;">{message}</div>
-                                            </div>
-                                        """
+                                    <div>{timestamp}</div>
+                                    <div>你:{message}</div>
+                                    """
                         else:
                             # 他人的消息（左侧）
                             html_content = f"""
-                                            {self.msg_style}
-                                            <div class="other-msg">
-                                                <div class="other-time">{timestamp}</div>
-                                                <div class="other-id">用户 {sender_id[-4:]}</div> <!-- 显示后四位 -->
-                                                <div style="margin-top:4px;">{message}</div>
-                                            </div>
-                                        """
+                                    <div>{timestamp}</div>
+                                    <div>用户{sender_id}:{message}</div>
+                                    """
                         self.chat_display.append(html_content)
                         # 自动滚动到底部
                         self.chat_display.verticalScrollBar().setValue(
@@ -144,6 +118,8 @@ class ChatWindow(QMainWindow):
                         )
         elif result["data"]["result"] == "failed":
             match result["type"]:
+                case "join_group":
+                    QMessageBox.critical(self, "错误", result["data"]["reason"])
                 case "create_group":
                     QMessageBox.critical(self, "错误", "聊天室号码已存在")
                 case "get_groups":
@@ -268,6 +244,7 @@ class ChatWindow(QMainWindow):
                     font-size: 14px;
                     color: #000000; /* 新增文本颜色设置 */
                 }
+                QMessageBox QLabel { color: black; }
                 QListWidget::item {
                     color: #000000; /* 确保列表项文本颜色 */
                 }
@@ -288,73 +265,6 @@ class ChatWindow(QMainWindow):
                     border-radius: 4px;
                 }
             """)
-        self.chat_style = """
-        <style>
-            /* 全局消息容器 */
-            .message-container {
-                max-width: 78%;
-                margin: 15px 0;
-                position: relative;
-                clear: both;
-            }
-
-            /* 通用消息气泡 */
-            .msg-bubble {
-                padding: 12px 16px;
-                border-radius: 15px;
-                line-height: 1.5;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-                position: relative;
-            }
-
-            /* 自己消息 */
-            .self-msg {
-                background: #E1F3D8;
-                border: 1px solid #B7D8A6;
-                float: right;
-                margin-right: 10px;
-            }
-
-            /* 他人消息 */
-            .other-msg {
-                background: #F0F2F5;
-                border: 1px solid #D8DEE4;
-                float: left;
-                margin-left: 10px;
-            }
-
-            /* 时间戳样式 */
-            .time-stamp {
-                position: absolute;
-                bottom: -20px;
-                font-size: 0.75em;
-                color: #7F8C8D;
-                white-space: nowrap;
-            }
-
-            /* 用户标识样式 */
-            .user-label {
-                font-weight: 500;
-                margin-bottom: 6px;
-                font-size: 0.85em;
-            }
-
-            /* 自己消息定位 */
-            .self-msg .time-stamp {
-                right: 15px;
-            }
-
-            .other-msg .time-stamp {
-                left: 15px;
-            }
-
-            /* 消息内容样式 */
-            .message-content {
-                word-wrap: break-word;
-                font-size: 0.95em;
-            }
-        </style>
-        """
         # 特殊按钮样式
         self.send_button.setStyleSheet("""
                 QPushButton {
@@ -421,7 +331,13 @@ class ChatWindow(QMainWindow):
     def join_chatroom(self):
         """加入聊天室接口"""
         # 添加实际加入逻辑
-        pass
+        dialog = JoinRoomDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            room_id = dialog.get_room_id()
+            # 构造请求协议 该对象是一个字典
+            request = run(self.managers.join_group_soft, group_number=room_id, user_id=self.id)
+            self.network_thread.set_request_data(request)
+            self.network_thread.run()
 
     def leave_chatroom(self):
         """离开聊天室接口"""
@@ -432,7 +348,7 @@ class ChatWindow(QMainWindow):
 if __name__ == "__main__":
     #app = sys.argv.append('--no-sandbox')  # 仅在Linux桌面环境需要
     app = QApplication(sys.argv)
-    tcp_server = TCPServer("15382533273")
+    tcp_server = TCPServer("15167466371")
     window = ChatWindow(tcp_server)
     window.show()
     sys.exit(app.exec())
