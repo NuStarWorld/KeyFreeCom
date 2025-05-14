@@ -2,6 +2,7 @@ import sys
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
+from qt.gui.ChatWindow import ChatWindow
 from server.impl.TCPServer import TCPServer
 
 verify = ""
@@ -10,6 +11,8 @@ tcp_server= None
 class ImprovedLoginWindow(QMainWindow):
     send_code_request = pyqtSignal(str)
     verify_request = pyqtSignal(str, str)
+    # 用于跳转
+    login_success = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -136,33 +139,68 @@ class ImprovedLoginWindow(QMainWindow):
             self.show_tip("请输入手机号和验证码", 2000)
             return
 
-        self.verify_request.emit(phone, code)
+        # 调用验证方法并获取返回结果
+        result = VerifyHandler.login(phone, code)
+
+        if result["success"]:
+            # 发送成功信号（携带TCP对象）
+            self.login_success.emit(result["tcp"])
+            # 关闭当前窗口
+            self.close()
+        else:
+            self.show_tip(result["msg"], 2000)
 
 class VerifyHandler:
     @staticmethod
-    def send_phone_verify_code(phone):
+    def send_phone_verify_code():
         global verify
         verify = "1111"
 
     @staticmethod
     def login(phone, box_verify):
-        global verify
+        global verify, tcp_server
         print(verify)
         if box_verify == verify:
-            global tcp_server
             if tcp_server is None:
+                # 创建TCP服务实例
                 tcp_server = TCPServer(phone)
-                print("登录成功")
-            else:
-                print("请勿重复登录")
-        else:
-            print("验证码错误")
-if __name__ == "__main__":
 
+                # 返回包含登录状态和TCP实例的字典
+                return {
+                    "success": True,
+                    "tcp": tcp_server,
+                    "msg": "登录成功"
+                }
+            else:
+                return {
+                    "success": False,
+                    "msg": "请勿重复登录"
+                }
+        else:
+            return {
+                "success": False,
+                "msg": "验证码错误"
+            }
+
+
+class AppManager:
+    def __init__(self):
+        self.login_window = ImprovedLoginWindow()
+        self.chat_window = None
+
+        # 绑定信号
+        self.verifyHandler = VerifyHandler()
+        self.login_window.send_code_request.connect(self.verifyHandler.send_phone_verify_code)
+        self.login_window.login_success.connect(self.handle_login_success)
+
+    def handle_login_success(self, tcp):
+        try:
+            self.chat_window = ChatWindow(tcp)
+            self.chat_window.show()
+        except Exception as e:
+            QMessageBox.critical(None, "初始化错误", f"无法启动聊天窗口：{str(e)}")
+if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = ImprovedLoginWindow()
-    verifyHandler = VerifyHandler()
-    window.send_code_request.connect(verifyHandler.send_phone_verify_code)
-    window.verify_request.connect(verifyHandler.login)
-    window.show()
+    manager = AppManager()  # 保持全局引用
+    manager.login_window.show()
     sys.exit(app.exec())

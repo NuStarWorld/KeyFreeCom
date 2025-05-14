@@ -18,7 +18,7 @@ class ChatWindow(QMainWindow):
 
     def __init__(self, tcp):
         super().__init__()
-        self.setWindowTitle("简约聊天室")
+        self.setWindowTitle("聊天室")
         self.setGeometry(100, 100, 500, 500)
         self.setup_ui()
         self.setup_styles()
